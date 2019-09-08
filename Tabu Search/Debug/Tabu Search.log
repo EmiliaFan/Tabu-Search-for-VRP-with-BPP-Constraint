@@ -1,0 +1,12 @@
+﻿  main.cpp
+f:\shanghaiqiche bisai\tabu search\tabu search\util.h(380): warning C4018: “<”: 有符号/无符号不匹配
+f:\shanghaiqiche bisai\tabu search\tabu search\vns.h(577): warning C4018: “<”: 有符号/无符号不匹配
+f:\shanghaiqiche bisai\tabu search\tabu search\vns.h(588): warning C4018: “<”: 有符号/无符号不匹配
+f:\shanghaiqiche bisai\tabu search\tabu search\vns.h(622): warning C4018: “<”: 有符号/无符号不匹配
+  MaxRectsBinPack.cpp
+f:\shanghaiqiche bisai\tabu search\tabu search\maxrec\maxrectsbinpack.cpp(171): warning C4244: “+=”: 从“double”转换到“float”，可能丢失数据
+f:\shanghaiqiche bisai\tabu search\tabu search\maxrec\maxrectsbinpack.cpp(173): warning C4244: “return”: 从“double”转换到“float”，可能丢失数据
+  Rect.cpp
+  正在生成代码...
+f:\shanghaiqiche bisai\tabu search\tabu search\util.h(187): warning C4715: “my_util::pick_vehicle”: 不是所有的控件路径都返回值
+  Tabu Search.vcxproj -> F:\Shanghaiqiche bisai\Tabu Search\Debug\Tabu Search.exe
