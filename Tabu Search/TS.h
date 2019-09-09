@@ -24,7 +24,7 @@ unordered_map<string, Station> stations;
 unordered_map<pair<string, string>, double, pair_hash> distance_matrix;
 unordered_map<pair<string, string>, double, pair_hash> load_time_matrix;
 
-const int print_freq = 300;  // Local Search输出间隔
+const int print_freq = 400;  // Local Search输出间隔
 size_t current_iter = 1;
 const int TABU_LENGTH = 10;
 double ETA = 0.02;   //惩罚系数 
@@ -35,12 +35,13 @@ double beta_len = 1.5;//一定阶段不可行除以他，一定阶段可行无增乘以他
 int Change_Interval = 10;//一定阶段不可行除以他，一定阶段可行无增乘以他
 int current_continuous_interval = 0;//小于0说明在记录连续不可行，反之记录可行
 
+
 string move4_sid;
 
 char* best_known_sol;
 double best_known_cost;
-double current_neighbour_cost;
 double current_neighbour_penaltylen_cost;
+double current_neighbour_cost;
 double current_neighbour_cost_cmp;
 string current_neighbour_move[6];
 unordered_set<tuple<string, string, string>, tuple_hash3> my_tabuset1;
@@ -56,7 +57,7 @@ unordered_map<pair<string, string>, int, pair_hash> times_out;   //(STATION_ID离
 namespace ts {
 	//初始化
 	char* initialize() {
-		char* init_sol_json = readFileIntoString("result\\init_sol_928.json");
+		char* init_sol_json = readFileIntoString("result\\init_sol_py.json");
 		resolve_sol(init_sol_json);
 		for (auto& v : used_vehicles) {
 			for (auto& s : stations) {
@@ -67,6 +68,38 @@ namespace ts {
 			}
 		}
 		return init_sol_json;
+	}
+
+
+	char* initialize(int z) {
+		for (auto& s : stations) {
+			int index = s.second.own_bins.size();
+			while (index > 0) {
+				Vehicle vehicle = pick_vehicle(s.second, 0);
+				s.second.pass_vehicles.insert(vehicle.get_id());
+				
+				BPPManager M(vehicle.get_width(), vehicle.get_length());
+				double total_area = 0, total_weight = 0;
+				for (int i = index - 1; i > -1; --i) {
+					total_area += bins.at(s.second.own_bins[i]).get_area();
+					total_weight += bins.at(s.second.own_bins[i]).get_weight();
+					if (total_area <= vehicle.get_area() && total_weight <= vehicle.get_weight() && M.checkbpp()) {
+						if (vehicle.visit_order.empty()) {
+							vehicle.visit_order.push_back(s.second.get_id());
+						}
+						M.return_seq(vehicle.loaded_items);
+						vehicle.set_loaded_area(total_area);
+						vehicle.set_loaded_weight(total_weight);
+						--index;
+					}
+					else {
+						++index;
+						break;
+					}
+				}
+				used_vehicles.push_back(vehicle);
+			}
+		}
 	}
 
 	template <typename T>
@@ -218,7 +251,7 @@ namespace ts {
 							//int num_bins = cal_num_bins();
 							//std::cout << "当前箱子数： " << num_bins << endl;
 						}
-						//std::cout << "Current # of bins: " << cal_num_bins() << endl;
+
 						return true;
 					}
 					else {
@@ -572,46 +605,51 @@ namespace ts {
 	bool move4(Vehicle v1) {
 		//检查 tabuset
 		string sid = v1.visit_order[0];
-
-
 		double cost = current_neighbour_cost;
 		vector<string> vids;
-		for (auto& vid : stations.at(sid).pass_vehicles)
-		{
-			if (vid == v1.get_id())
-				continue;
-			double destv_wid,destv_len;
-			vector<string> destv_loaded_items;
-			for (auto vvv : used_vehicles)
-			{
-				if (vvv.get_id() == vid)
-				{
-					destv_wid = vvv.get_width();
-					destv_len = vvv.get_length();
-					destv_loaded_items = vvv.loaded_items;
-					break;
-				}
+
+
+		vector<Vehicle> pv_vector;
+		auto pv_set = stations.at(sid).pass_vehicles;
+		for (auto& v : used_vehicles) {
+			auto it = pv_set.find(v.get_id());
+			if (it != pv_set.end()) {
+				if (*it != v1.get_id())
+					pv_vector.push_back(v);
+				pv_set.erase(it);
 			}
-			BPPManager M(destv_wid, destv_len);
+			if (pv_set.empty())
+				break;
+		}
+
+		for (auto& v : pv_vector)
+		{
+			BPPManager M(v.get_width(), v.get_length());
 			vector<Bin> Bin_total_items;
-			for (string bid : destv_loaded_items) {
+			for (string bid : v.loaded_items) {
 				Bin_total_items.push_back(bins.at(bid));
 			}
 			M.add_bins(Bin_total_items);
-			for (size_t idx = 0; idx < v1.loaded_items.size(); idx++) {
+			auto it = v1.loaded_items.begin();
+			while (it != v1.loaded_items.end()) {
 				M.update_backup();
-				M.add_bin(bins.at(v1.loaded_items[idx]));
+				M.add_bin(bins.at(*it));
 				if (M.checkbpp_sort_multi()) {
-					VectorRemoveAt(v1.loaded_items, idx);
-					idx--;
+					it = v1.loaded_items.erase(it);
 				}
 				else
+				{
 					M.restore();
+					it++;
+				}
 			}
-			if (destv_loaded_items.size() != M.get_bins_size()) {
-				vids.push_back(vid);
+
+			if (v.loaded_items.size() != M.get_bins_size()) {
+				vids.push_back(v.get_id());
 			}
 		}
+
+
 		for (auto v : used_vehicles) {
 			if (stations.at(sid).pass_vehicles.find(v.get_id()) != stations.at(sid).pass_vehicles.end())
 				continue;
@@ -619,7 +657,7 @@ namespace ts {
 				continue;
 			if (v.get_length() > stations.at(sid).get_limit())
 				continue;
-			if (v.occupancy() > 0.88 && find(v.visit_order.begin(), v.visit_order.end(), sid) == v.visit_order.end())
+			if (v.occupancy() > 0.9 && find(v.visit_order.begin(), v.visit_order.end(), sid) == v.visit_order.end())
 				continue;
 			else {
 				BPPManager M(v.get_width(), v.get_length());
@@ -637,29 +675,21 @@ namespace ts {
 						continue;
 				}
 
-				for (size_t idx = 0; idx < v1.loaded_items.size(); idx++) {
+				auto it = v1.loaded_items.begin();
+				while (it != v1.loaded_items.end()) {
 					M.update_backup();
-					M.add_bin(bins.at(v1.loaded_items[idx]));
+					M.add_bin(bins.at(*it));
 					if (M.checkbpp_sort_multi()) {
-						VectorRemoveAt(v1.loaded_items, idx);
-						idx--;
+						it = v1.loaded_items.erase(it);
 					}
 					else
+					{
 						M.restore();
+						it++;
+					}
 				}
 
-				/*for (size_t idx = v1.loaded_items.size() - 1; idx > -1; --idx) {
-					M.update_backup();
-					M.add_bin(bins.at(v1.loaded_items[idx]));
-					cout << 2222222222 << endl;
-					if (M.checkbpp_sort_multi())
-						VectorRemoveAt(v1.loaded_items, idx);
-					else
-						M.restore();
-				}*/
-
 				if (v.loaded_items.size() != M.get_bins_size()) {
-					//cout << 1111111111111111 << endl;
 
 					cost += (smallest_dist - pre_dist) * v.get_distance_fare();
 					vids.push_back(v.get_id());
@@ -667,7 +697,7 @@ namespace ts {
 			}
 		}
 
-		
+
 		if (v1.loaded_items.size() == 0)
 			cost -= v1.get_flagdown_fare();
 		double penalty = 0;
@@ -690,6 +720,7 @@ namespace ts {
 			current_neighbour_cost_cmp = cost;
 			current_neighbour_move[0] = "4";
 			current_neighbour_move[1] = v1.get_id();
+
 		}
 	}
 
@@ -699,8 +730,6 @@ namespace ts {
 			if (count % print_freq == 0)
 				std::cout << "local search 1 on going: " << count << endl;
 			count++;
-			if (v1.get_id() == "V764")
-				print_vector(v1.visit_order);
 			for (string sid : v1.visit_order) {
 				Station& s = stations.at(sid);
 				for (Vehicle& v2 : used_vehicles) {
@@ -773,7 +802,7 @@ namespace ts {
 			count++;
 			if (v1.visit_order.size() > 1)
 				continue;
-			
+
 			move4(v1);
 		}
 	}
@@ -856,7 +885,7 @@ namespace ts {
 			if (cost < best_known_cost) {
 				std::cout << "New Best Cost:" << cost << endl;
 				best_known_cost = cost;
-				best_known_sol = save_sol("result\\init_sol.json");
+				best_known_sol = save_sol("result\\init_sol11.json");
 				int num_bins = cal_num_bins();
 				std::cout << "当前箱子数： " << num_bins << endl;
 
@@ -992,7 +1021,7 @@ namespace ts {
 				if (cost < best_known_cost) {
 					std::cout << "New Best Cost:" << cost << endl;
 					best_known_cost = cost;
-					best_known_sol = save_sol("result\\init_sol.json");
+					best_known_sol = save_sol("result\\init_sol11.json");
 					std::cout << "best记录解箱子数：" << cal_num_bins() << endl;
 				}
 				/*		std::cout << "move2 后v1：" << v1.visit_order.size() << endl;
@@ -1105,8 +1134,9 @@ namespace ts {
 				if (cost < best_known_cost) {
 					std::cout << "New Best Cost:" << cost << endl;
 					best_known_cost = cost;
-					best_known_sol = save_sol("result\\init_sol.json");
-					std::cout << "当前箱子数： " << cal_num_bins() << endl;
+					best_known_sol = save_sol("result\\init_sol11.json");
+					int num_bins = cal_num_bins();
+					std::cout << "当前箱子数： " << num_bins << endl;
 				}
 				/*		std::cout << "move3 后v1：" << v1.visit_order.size() << endl;
 						std::cout << "move3 后v2：" << v2.visit_order.size() << endl;*/
@@ -1118,50 +1148,59 @@ namespace ts {
 	}
 
 	bool real_move4(Vehicle& v1) {
-		
+
 		string sid = v1.visit_order[0];
-
-
 		double cost = current_neighbour_cost;
-		vector<string> vids;
+		vector<string> vids;   //实际被移入的车辆
 		int pre_size = v1.loaded_items.size();
 
-		for (auto& vid : stations.at(sid).pass_vehicles)
-		{
-			if (vid == v1.get_id())
-				continue;
-			double destv_wid, destv_len;
-			vector<string> destv_loaded_items;
-			for (auto vvv : used_vehicles)
-			{
-				if (vvv.get_id() == vid)
-				{
-					destv_wid = vvv.get_width();
-					destv_len = vvv.get_length();
-					destv_loaded_items = vvv.loaded_items;
-					break;
-				}
+		vector<int> pv_vector;  //当前站点经过的车辆在used_vehicles中的idx
+		auto pv_set = stations.at(sid).pass_vehicles;
+
+		for (auto& itu = used_vehicles.begin(); itu != used_vehicles.end(); itu++) {
+			auto it = pv_set.find((*itu).get_id());
+			if (it != pv_set.end()) {
+				if (*it != v1.get_id())
+					pv_vector.push_back(distance(used_vehicles.begin(), itu));
+				pv_set.erase(it);
 			}
-			BPPManager M(destv_wid, destv_len);
+			if (pv_set.empty())
+				break;
+		}
+
+
+		for (auto& v_idx : pv_vector)
+		{
+			Vehicle &v = used_vehicles[v_idx];
+			BPPManager M(v.get_width(), v.get_length());
 			vector<Bin> Bin_total_items;
-			for (string bid : destv_loaded_items) {
+			for (string bid : v.loaded_items) {
 				Bin_total_items.push_back(bins.at(bid));
 			}
 			M.add_bins(Bin_total_items);
-			for (size_t idx = 0; idx < v1.loaded_items.size(); idx++) {
+			auto it = v1.loaded_items.begin();
+			while (it != v1.loaded_items.end()) {
 				M.update_backup();
-				M.add_bin(bins.at(v1.loaded_items[idx]));
+				M.add_bin(bins.at(*it));
 				if (M.checkbpp_sort_multi()) {
-					VectorRemoveAt(v1.loaded_items, idx);
-					idx--;
+					v.set_loaded_area(v.get_loaded_area() + bins.at(*it).get_area());
+					v.set_loaded_weight(v.get_loaded_weight() + bins.at(*it).get_weight());
+					it = v1.loaded_items.erase(it);
 				}
 				else
+				{
 					M.restore();
+					it++;
+				}
 			}
-			if (destv_loaded_items.size() != M.get_bins_size()) {
-				vids.push_back(vid);
+
+			if (v.loaded_items.size() != M.get_bins_size()) {
+				M.return_seq(v.loaded_items);
+				vids.push_back(v.get_id());
+				update_tabusets(v);
 			}
 		}
+
 
 		for (auto& v : used_vehicles) {
 			if (stations.at(sid).pass_vehicles.find(v.get_id()) != stations.at(sid).pass_vehicles.end())
@@ -1170,7 +1209,7 @@ namespace ts {
 				continue;
 			if (v.get_length() > stations.at(sid).get_limit())
 				continue;
-			if (v.occupancy() > 0.88 && find(v.visit_order.begin(), v.visit_order.end(), sid) == v.visit_order.end())
+			if (v.occupancy() > 0.9 && find(v.visit_order.begin(), v.visit_order.end(), sid) == v.visit_order.end())
 				continue;
 			else {
 				BPPManager M(v.get_width(), v.get_length());
@@ -1189,30 +1228,21 @@ namespace ts {
 						continue;
 				}
 
-				for (size_t idx = 0; idx < v1.loaded_items.size(); idx++) {
+				auto it = v1.loaded_items.begin();
+				while (it != v1.loaded_items.end()) {
 					M.update_backup();
-					M.add_bin(bins.at(v1.loaded_items[idx]));
+					M.add_bin(bins.at(*it));
 					if (M.checkbpp_sort_multi()) {
-						v.set_loaded_area(v.get_loaded_area() + bins.at(v1.loaded_items.at(idx)).get_area());
-						v.set_loaded_weight(v.get_loaded_weight() + bins.at(v1.loaded_items.at(idx)).get_weight());
-						VectorRemoveAt(v1.loaded_items, idx);
-						idx--;
+						v.set_loaded_area(v.get_loaded_area() + bins.at(*it).get_area());
+						v.set_loaded_weight(v.get_loaded_weight() + bins.at(*it).get_weight());
+						it = v1.loaded_items.erase(it);
 					}
 					else
+					{
 						M.restore();
+						it++;
+					}
 				}
-
-				/*for (size_t idx = v1.loaded_items.size() - 1; idx > -1; --idx) {
-					M.update_backup();
-					M.add_bin(bins.at(v1.loaded_items.at(idx)));
-					if (M.checkbpp_sort_multi()) {
-						VectorRemoveAt(v1.loaded_items, idx);
-						v.set_loaded_area(v.get_loaded_area() + bins.at(v1.loaded_items.at(idx)).get_area());
-						v.set_loaded_weight(v.get_loaded_weight() + bins.at(v1.loaded_items.at(idx)).get_weight());
-					}
-					else
-						M.restore();
-				}*/
 
 				if (v.loaded_items.size() != M.get_bins_size()) {
 					M.return_seq(v.loaded_items);
@@ -1226,14 +1256,12 @@ namespace ts {
 				}
 			}
 		}
-		cout << "shuru1 v1" << v1.get_id() << endl;
 		if (v1.loaded_items.size() != pre_size)
 			update_tabusets(v1);
 
 		if (v1.loaded_items.size() == 0) {
 			unused_vehicles.insert({ v1.get_id(), v1 });
 			cost -= v1.get_flagdown_fare();
-			cout << "real flag car：" << v1.get_id() << v1.get_flagdown_fare() << endl;
 
 			stations.at(sid).discard(v1.get_id());
 		}
@@ -1261,10 +1289,11 @@ namespace ts {
 		if (cost < best_known_cost) {
 			std::cout << "New Best Cost:" << cost << endl;
 			best_known_cost = cost;
-			best_known_sol = save_sol("result\\init_sol.json");
-			std::cout << "当前箱子数： " << cal_num_bins() << endl;
-		}
+			best_known_sol = save_sol("result\\init_sol11.json");
 
+		}
+		int num_bins = cal_num_bins();
+		std::cout << "当前箱子数： " << num_bins << endl;
 		tabuset_in.at(make_pair(sid, v1.get_id())) = current_iter + TABU_LENGTH;
 		times_out.at(make_pair(sid, v1.get_id()))++;
 		for (string vid : vids) {
@@ -1272,7 +1301,7 @@ namespace ts {
 			tabuset_out.at(make_pair(sid, vid)) = current_iter + TABU_LENGTH;
 		}
 
-		if (v1.loaded_items.size() == 0) 
+		if (v1.loaded_items.size() == 0)
 			used_vehicles.erase(find(used_vehicles.begin(), used_vehicles.end(), v1));
 		std::cout << "Move4 Real New Neighbour Best:" << cal_total_cost() << endl;
 
@@ -1290,8 +1319,8 @@ namespace ts {
 					for (auto& vv : used_vehicles) {
 						if (vv.get_id() == current_neighbour_move[2]) {
 							Vehicle &v2 = vv;
-							std::cout << v1.get_id() << endl;
-							print_vector(v.visit_order);
+							//std::cout << v1.get_id() << endl;
+							//print_vector(v.visit_order);
 							update_tabusets(v1, v2);
 							times_in.at(make_pair(s.get_id(), v2.get_id()))++;
 							times_out.at(make_pair(s.get_id(), v1.get_id()))++;

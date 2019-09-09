@@ -24,19 +24,19 @@ int main() {
 	get_load_time_matrix();
 
 
-	//VNS开始
+	//TS开始
 	best_known_sol = ts::initialize();
 	best_known_cost = cal_total_cost();
 	current_neighbour_cost = best_known_cost;
 	current_neighbour_cost_cmp = 9999999;
 
 	cout << "初始成本：" << best_known_cost << endl;
-	cout << "初始箱子数：" << cal_num_bins() << endl;
-
+	std::cout << "Current # of bins: " << cal_num_bins() << endl;
 
 	for (current_iter; current_iter < 100000000; ++current_iter) {
 		cout << "\n当前迭代第" << current_iter << "次:" << endl;
 		cout << "当前最优成本：" << best_known_cost << endl;
+		cout << "当前用车：" << used_vehicles.size() << endl;
 		LS1();
 		LS3();
 		LS2();

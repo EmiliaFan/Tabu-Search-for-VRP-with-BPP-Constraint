@@ -132,6 +132,10 @@ namespace my_util {
 			stations.insert({ a[i]["station_id"].GetString(),*temp });
 		}
 
+		for (auto& b : bins) {
+			stations.at(b.second.get_station()).own_bins.push_back(b.second.get_id());
+		}
+
 		return stations;
 	}
 
@@ -177,13 +181,28 @@ namespace my_util {
 	}
 
 	//初始化时选车
-	Vehicle& pick_vehicle(vector<Vehicle>& unused_vehicles, Station& station) {
-		vector<Vehicle>::iterator vit = unused_vehicles.begin();
+
+	// 有序
+	Vehicle& pick_vehicle(Station& station) {
+		auto& vit = unused_vehicles.begin();
 		while (vit != unused_vehicles.end()) {
-			if (vit->get_length() <= station.get_limit())
-				return *(unused_vehicles.erase(vit));
+			if ((*vit).second.get_length() <= station.get_limit())
+				return (*(unused_vehicles.erase(vit))).second;
 			vit++;
 		}
+	}
+
+	//随机
+	Vehicle& pick_vehicle( Station& station, int dummy) {
+		int idx = rand() % unused_vehicles.size();
+		auto it = unused_vehicles.begin();
+		std::advance(it, idx);
+		while ((*it).second.get_length() > station.get_limit()) {
+			idx = rand() % unused_vehicles.size();
+			auto it = unused_vehicles.begin();
+			std::advance(it, idx);
+		}
+		return (*(unused_vehicles.erase(it))).second;
 	}
 
 	// 将站点ID(或车辆ID)转化为序号，如"S007" -> 6

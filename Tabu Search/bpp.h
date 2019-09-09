@@ -19,16 +19,13 @@ public:
 	}
 	bool checkbpp();
 	bool checkbpp_sort();
-	bool checkbpp_sort_multi(); 
-	double callength();
-	double callength_sort();
-	double callength_sort_multi();
+	bool checkbpp_sort_multi();
 	void clear_bin();
-	int get_bins_size() const { return own_bins.size(); }
 	void add_bins(vector<Bin>& bins);
 	void add_bin(Bin& bin);
 	void return_seq(vector<string>& loaded_items);
 	void update_backup();
+	int get_bins_size() const { return own_bins.size(); }
 	void restore();
 private:
 	vector<Bin> own_bins;
@@ -38,22 +35,7 @@ private:
 	rbp::MaxRectsBinPack::FreeRectChoiceHeuristic heuristic;
 };
 
-inline bool BPPManager::checkbpp_sort_multi()
-{
-	rbp::MaxRectsBinPack::FreeRectChoiceHeuristic heuristics[5] = { rbp::MaxRectsBinPack::RectBottomLeftRule,
-		rbp::MaxRectsBinPack::RectBestShortSideFit, rbp::MaxRectsBinPack::RectBestLongSideFit,
-		rbp::MaxRectsBinPack::RectBestAreaFit, rbp::MaxRectsBinPack::RectContactPointRule };
-	for (int i = 0; i < 5; i++)
-	{
-		this->heuristic = heuristics[i];
-		if (this->checkbpp_sort())
-			return 1;
-	}
-	return 0;
-}
-
-
-inline void BPPManager::add_bins(vector<Bin>& bins) { 
+void BPPManager::add_bins(vector<Bin>& bins) { 
 	if(bins.empty())
 		this->own_bins = bins; 
 	else {
@@ -61,18 +43,18 @@ inline void BPPManager::add_bins(vector<Bin>& bins) {
 	}
 }
 
-inline void BPPManager::add_bin(Bin& bin) {
+void BPPManager::add_bin(Bin& bin) {
 	own_bins.push_back(bin);
 }
 
-inline void BPPManager::update_backup() {
+void BPPManager::update_backup() {
 	backup_bins = own_bins;
 }
-inline void BPPManager::restore() {
+void BPPManager::restore() {
 	own_bins = backup_bins;
 }
 
-inline bool BPPManager::checkbpp()
+bool BPPManager::checkbpp()
 {
 	rbp::MaxRectsBinPack MaxRec;
 	MaxRec.Init(veh_w, veh_l);
@@ -86,13 +68,13 @@ inline bool BPPManager::checkbpp()
 
 }
 
-inline void BPPManager::clear_bin()
+void BPPManager::clear_bin()
 {
 	this->own_bins.clear();
 }
 
 
-inline void BPPManager::return_seq(vector<string>& loaded_items)
+void BPPManager::return_seq(vector<string>& loaded_items)
 {
 	loaded_items.clear();
 	for (unsigned i = 0; i < own_bins.size(); i++)
@@ -101,9 +83,24 @@ inline void BPPManager::return_seq(vector<string>& loaded_items)
 	}
 }
 
+bool calcor(vector<string>& packed_bins, Vehicle veh, rbp::MaxRectsBinPack::FreeRectChoiceHeuristic heuristic)
+{
+	rbp::MaxRectsBinPack MaxRec;
+	MaxRec.Init(veh.get_width(), veh.get_length());
+	for (unsigned i = 0; i < packed_bins.size(); i++)
+	{
+		rbp::Rect packedRect = MaxRec.Insert(bins.at(packed_bins[i]).get_width(), bins.at(packed_bins[i]).get_length(), heuristic);
+		if (packedRect.height == 0)
+			return 0;
+		bins.at(packed_bins[i]).set_x(packedRect.x);
+		bins.at(packed_bins[i]).set_y(packedRect.y);
+		bins.at(packed_bins[i]).set_real_width(packedRect.width);
+		bins.at(packed_bins[i]).set_real_length(packedRect.height);
+	}
+	return 1;
+}
 
-
-inline bool BPPManager::checkbpp_sort()
+bool BPPManager::checkbpp_sort()
 {
 	if (this->checkbpp())//按放入顺序
 		return 1;
@@ -123,7 +120,7 @@ inline bool BPPManager::checkbpp_sort()
 		else
 			break;
 	}
-	for (int i = 1; i < 6; i++)
+	for (int i = 1; i < 12; i++)
 	{
 		sort(own_bins.begin(), own_bins.end(), fun_comp[i]);
 		if (this->checkbpp())
@@ -132,102 +129,16 @@ inline bool BPPManager::checkbpp_sort()
 	return 0;
 }
 
-
-inline double BPPManager::callength()
+bool calcor_sort(vector<string>& packed_bins, Vehicle veh, rbp::MaxRectsBinPack::FreeRectChoiceHeuristic heuristic)
 {
-	rbp::MaxRectsBinPack MaxRec;
-	MaxRec.Init(veh_w, veh_l);
-	double maxlength;
-	for (unsigned i = 0; i < own_bins.size(); i++)
-	{
-		rbp::Rect packedRect = MaxRec.Insert(own_bins[i].get_width(), own_bins[i].get_length(), this->heuristic);
-		if (packedRect.height == 0)
-			return 9999;
-		else
-			maxlength = packedRect.y + packedRect.height;
-	}
-	return maxlength;
-}
-
-
-inline double BPPManager::callength_sort()
-{
-	double maxlength;
-	maxlength = this->callength();
-	if (maxlength<this->veh_l)//按放入顺序
-		return maxlength;
-	sort(own_bins.begin(), own_bins.end(), fun_comp[0]);//面积降序
-	maxlength = this->callength();
-	if (maxlength<this->veh_l)
-		return maxlength;
-	for (unsigned i = 0; i < own_bins.size() - 1; i++)
-	{
-		if (own_bins[i].get_area() > 1.5)
-		{
-			maxlength = this->callength();
-			if (maxlength < this->veh_l)
-				return maxlength;
-			else
-				swap(own_bins[i], own_bins[i + 1]);
-		}
-		else
-			break;
-	}
-	for (int i = 1; i < 6; i++)
-	{
-		sort(own_bins.begin(), own_bins.end(), fun_comp[i]);
-		maxlength = this->callength();
-		if (maxlength < this->veh_l)
-			return maxlength;
-	}
-	return 9999;
-}
-
-
-inline double BPPManager::callength_sort_multi()
-{
-	double maxlength;
-	rbp::MaxRectsBinPack::FreeRectChoiceHeuristic heuristics[5] = { rbp::MaxRectsBinPack::RectBottomLeftRule,
-		rbp::MaxRectsBinPack::RectBestShortSideFit, rbp::MaxRectsBinPack::RectBestLongSideFit,
-		rbp::MaxRectsBinPack::RectBestAreaFit, rbp::MaxRectsBinPack::RectContactPointRule };
-	for (int i = 0; i < 5; i++)
-	{
-		this->heuristic = heuristics[i];
-		maxlength = this->callength_sort();
-		if (maxlength < this->veh_l)
-			return maxlength;
-	}
-	return 9999;
-}
-
-
-bool calcor(vector<Bin>& packed_bins, Vehicle veh, rbp::MaxRectsBinPack::FreeRectChoiceHeuristic heuristic)
-{
-	rbp::MaxRectsBinPack MaxRec;
-	MaxRec.Init(veh.get_width(), veh.get_length());
-	for (unsigned i = 0; i < packed_bins.size(); i++)
-	{
-		rbp::Rect packedRect = MaxRec.Insert(packed_bins[i].get_width(), packed_bins[i].get_length(), heuristic);
-		if (packedRect.height == 0)
-			return 0;
-		packed_bins[i].set_x(packedRect.x);
-		packed_bins[i].set_y(packedRect.y);
-		packed_bins[i].set_real_width(packedRect.width);
-		packed_bins[i].set_real_length(packedRect.height);
-	}
-	return 1;
-}
-
-bool calcor_sort(vector<Bin>& packed_bins, Vehicle veh, rbp::MaxRectsBinPack::FreeRectChoiceHeuristic heuristic)
-{
-	if (calcor(packed_bins, veh, heuristic))
+	if (calcor(packed_bins, veh,heuristic))
 		return 1;
-	sort(packed_bins.begin(), packed_bins.end(), fun_comp[0]);//面积降序
-	if (calcor(packed_bins, veh, heuristic))
+	sort(packed_bins.begin(), packed_bins.end(), fun_comp_id[0]);//面积降序
+	if (calcor(packed_bins, veh,heuristic))
 		return 1;
 	for (unsigned i = 0; i < packed_bins.size() - 1; i++)
 	{
-		if (packed_bins[i].get_area() > 1.5)
+		if (bins.at(packed_bins[i]).get_area() > 1.5)
 		{
 			swap(packed_bins[i], packed_bins[i + 1]);
 			if (calcor(packed_bins, veh, heuristic))
@@ -240,20 +151,35 @@ bool calcor_sort(vector<Bin>& packed_bins, Vehicle veh, rbp::MaxRectsBinPack::Fr
 	}
 	for (int i = 1; i < 12; i++)
 	{
-		sort(packed_bins.begin(), packed_bins.end(), fun_comp[i]);
+		sort(packed_bins.begin(), packed_bins.end(), fun_comp_id[i]);
 		if (calcor(packed_bins, veh, heuristic))
 			return 1;
 	}
 	return 0;
 
 }
-bool calcor_sort_multi(vector<Bin>& packed_bins, Vehicle veh)
+
+bool BPPManager::checkbpp_sort_multi()
+{
+	rbp::MaxRectsBinPack::FreeRectChoiceHeuristic heuristics[5] = { rbp::MaxRectsBinPack::RectBottomLeftRule,
+		rbp::MaxRectsBinPack::RectBestShortSideFit, rbp::MaxRectsBinPack::RectBestLongSideFit,
+		rbp::MaxRectsBinPack::RectBestAreaFit, rbp::MaxRectsBinPack::RectContactPointRule};
+	for (int i = 0;i < 5;i++)
+	{
+		this->heuristic = heuristics[i];
+		if (this->checkbpp_sort())
+			return 1;
+	}
+	return 0;
+}
+
+bool calcor_sort_multi(vector<string>& packed_bins, Vehicle veh)
 {
 	rbp::MaxRectsBinPack::FreeRectChoiceHeuristic heuristics[5] = { rbp::MaxRectsBinPack::RectBottomLeftRule,
 		rbp::MaxRectsBinPack::RectBestShortSideFit,rbp::MaxRectsBinPack::RectBestLongSideFit,
 		rbp::MaxRectsBinPack::RectBestAreaFit,rbp::MaxRectsBinPack::RectContactPointRule
 	};
-	for (int i = 0; i < 5; i++)
+	for (int i = 0;i < 5;i++)
 	{
 		if (calcor_sort(packed_bins, veh, heuristics[i]))
 			return 1;
