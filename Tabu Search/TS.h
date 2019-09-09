@@ -57,7 +57,7 @@ unordered_map<pair<string, string>, int, pair_hash> times_out;   //(STATION_ID离
 namespace ts {
 	//初始化
 	char* initialize() {
-		char* init_sol_json = readFileIntoString("result\\init_sol_py.json");
+		char* init_sol_json = readFileIntoString("result\\init_sol_928.json");
 		resolve_sol(init_sol_json);
 		for (auto& v : used_vehicles) {
 			for (auto& s : stations) {
@@ -71,7 +71,7 @@ namespace ts {
 	}
 
 
-	char* initialize(int z) {
+	/*char* initialize(int z) {
 		for (auto& s : stations) {
 			int index = s.second.own_bins.size();
 			while (index > 0) {
@@ -100,7 +100,7 @@ namespace ts {
 				used_vehicles.push_back(vehicle);
 			}
 		}
-	}
+	}*/
 
 	template <typename T>
 	void update_single_tabuset(Vehicle v1, Vehicle v2, T tabuset) {
@@ -1157,7 +1157,7 @@ namespace ts {
 		vector<int> pv_vector;  //当前站点经过的车辆在used_vehicles中的idx
 		auto pv_set = stations.at(sid).pass_vehicles;
 
-		for (auto& itu = used_vehicles.begin(); itu != used_vehicles.end(); itu++) {
+		for (auto itu = used_vehicles.begin(); itu != used_vehicles.end(); itu++) {
 			auto it = pv_set.find((*itu).get_id());
 			if (it != pv_set.end()) {
 				if (*it != v1.get_id())

@@ -12,7 +12,7 @@ public:
 	double get_limit() const { return limit; }
 	double get_load_time() const { return load_time; }
 	string get_id() const { return id; }
-	vector<Bin> own_bins;   //该站点所有箱子
+	vector<string> own_bins;   //该站点所有箱子
 	set<string> pass_vehicles;
 	void discard(string vid); //从pass_vehicles中去除箱子
 private:

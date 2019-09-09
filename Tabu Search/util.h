@@ -183,14 +183,14 @@ namespace my_util {
 	//初始化时选车
 
 	// 有序
-	Vehicle& pick_vehicle(Station& station) {
+	/*Vehicle& pick_vehicle(Station& station) {
 		auto& vit = unused_vehicles.begin();
 		while (vit != unused_vehicles.end()) {
 			if ((*vit).second.get_length() <= station.get_limit())
 				return (*(unused_vehicles.erase(vit))).second;
 			vit++;
 		}
-	}
+	}*/
 
 	//随机
 	Vehicle& pick_vehicle( Station& station, int dummy) {
