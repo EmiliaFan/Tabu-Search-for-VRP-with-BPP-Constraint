@@ -28,12 +28,19 @@ const int print_freq = 300;  // Local Search输出间隔
 size_t current_iter = 1;
 const int TABU_LENGTH = 10;
 double ETA = 0.02;   //惩罚系数 
+double Max_ETA_len = 50000;   //最大超长惩罚系数 
+double Min_ETA_len = 500;   //最小超长惩罚系数 
+double ETA_len = 0.02;   //超长惩罚系数 
+double beta_len = 1.5;//一定阶段不可行除以他，一定阶段可行无增乘以他
+int Change_Interval = 10;//一定阶段不可行除以他，一定阶段可行无增乘以他
+int current_continuous_interval = 0;//小于0说明在记录连续不可行，反之记录可行
 
 string move4_sid;
 
 char* best_known_sol;
 double best_known_cost;
 double current_neighbour_cost;
+double current_neighbour_penaltylen_cost;
 double current_neighbour_cost_cmp;
 string current_neighbour_move[6];
 unordered_set<tuple<string, string, string>, tuple_hash3> my_tabuset1;
